@@ -6,6 +6,9 @@ Sections:
     2. Meal Logging   (POST /meals, GET /meals, GET /meals/today, DELETE /meals/{meal_id})
     3. Nutrition      (GET /nutrition/daily-summary)
     4. Image Analysis (POST /analyze-image, POST /meals/from-analysis)
+    5. Auth           (POST /auth/signup, POST /auth/login)
+    6. Users          (GET /users/me, PATCH /users/me)
+    7. Manual Meals   (POST /meals/manual)
 """
 
 from datetime import date, datetime
@@ -25,21 +28,6 @@ class PredictionItem(BaseModel):
 
 
 class PredictionResponse(BaseModel):
-    """
-    Response from POST /predict.
-
-    Example:
-        {
-            "predicted_class": "pizza",
-            "confidence": 0.91,
-            "top_predictions": [
-                {"class_name": "pizza",     "confidence": 0.91},
-                {"class_name": "flatbread", "confidence": 0.05},
-                ...
-            ],
-            "processing_time_ms": 312.4
-        }
-    """
     predicted_class: str
     confidence: float = Field(..., ge=0.0, le=1.0)
     top_predictions: List[PredictionItem]
@@ -56,22 +44,6 @@ MealType = Literal["breakfast", "lunch", "dinner", "snack", "meal"]
 
 
 class MealLogRequest(BaseModel):
-    """
-    Request body for POST /meals.
-
-    One call = one food item logged.
-
-    Example request:
-        {
-            "user_id": 1,
-            "predicted_label": "pizza",
-            "confidence": 0.91,
-            "serving_quantity": 2,
-            "serving_unit": "slice",
-            "meal_type": "lunch",
-            "image_url": "https://example.com/photo.jpg"
-        }
-    """
     user_id: int = Field(..., description="ID of the user logging the meal")
     predicted_label: str = Field(..., description="Model label returned by POST /predict")
     confidence: Optional[float] = Field(None, ge=0.0, le=1.0)
@@ -83,30 +55,6 @@ class MealLogRequest(BaseModel):
 
 
 class MealEntryResponse(BaseModel):
-    """
-    A single logged meal entry.
-
-    Example response:
-        {
-            "meal_item_id": 5,
-            "meal_id": 3,
-            "user_id": 1,
-            "food_name": "Pizza",
-            "predicted_label": "pizza",
-            "serving_quantity": 2.0,
-            "serving_unit": "slice",
-            "serving_g": 300.0,
-            "calories": 798.0,
-            "protein_g": 33.0,
-            "carbs_g": 99.0,
-            "fat_g": 30.0,
-            "confidence": 0.91,
-            "image_url": "uploads/user1_1718323200_abc12345.jpg",
-            "meal_type": "lunch",
-            "meal_date": "2026-06-14",
-            "logged_at": "2026-06-14T10:32:00"
-        }
-    """
     meal_item_id: int
     meal_id: int
     user_id: int
@@ -131,22 +79,6 @@ class MealEntryResponse(BaseModel):
 # =============================================================================
 
 class DailySummaryResponse(BaseModel):
-    """
-    Daily nutrition totals aggregated live from meal_items.
-
-    Example response:
-        {
-            "user_id": 1,
-            "date": "2026-06-14",
-            "total_calories": 1540.0,
-            "total_protein_g": 72.5,
-            "total_carbs_g": 185.0,
-            "total_fat_g": 52.0,
-            "entry_count": 4,
-            "calorie_goal": 2000,
-            "calories_remaining": 460.0
-        }
-    """
     user_id: int
     date: date
     total_calories: float
@@ -156,6 +88,9 @@ class DailySummaryResponse(BaseModel):
     entry_count: int = Field(..., description="Number of individual food items logged today")
     calorie_goal: Optional[int] = Field(None, description="User's daily calorie target")
     calories_remaining: Optional[float] = Field(None, description="calorie_goal − total_calories")
+    protein_goal: Optional[int] = Field(None, description="User's daily protein target (g)")
+    carbs_goal: Optional[int] = Field(None, description="User's daily carbs target (g)")
+    fat_goal: Optional[int] = Field(None, description="User's daily fat target (g)")
 
 
 # =============================================================================
@@ -163,42 +98,8 @@ class DailySummaryResponse(BaseModel):
 # =============================================================================
 
 class AnalysisPreview(BaseModel):
-    """
-    Response from POST /analyze-image.
-
-    Contains everything the Flutter app needs to show a confirmation screen
-    before the user saves the meal. No data is written to the DB at this point.
-
-    The client should:
-        1. Show the photo, food name, and macro breakdown.
-        2. Let the user adjust serving_quantity / serving_unit.
-        3. Let the user pick a different label from top_predictions if the model was wrong.
-        4. POST the confirmed data to /meals/from-analysis to save.
-
-    Example response:
-        {
-            "image_url": "uploads/user1_1718323200_abc12345.jpg",
-            "predicted_label": "pizza",
-            "confidence": 0.91,
-            "low_confidence_warning": false,
-            "top_predictions": [
-                {"class_name": "pizza",     "confidence": 0.91},
-                {"class_name": "flatbread", "confidence": 0.05}
-            ],
-            "processing_time_ms": 312.4,
-            "food_name": "Pizza",
-            "serving_quantity": 2.0,
-            "serving_unit": "slice",
-            "serving_g": 300.0,
-            "calories": 798.0,
-            "protein_g": 33.0,
-            "carbs_g": 99.0,
-            "fat_g": 30.0,
-            "nutrition_source": "db"
-        }
-    """
     # Saved photo
-    image_url: str = Field(..., description="Relative path served at GET /uploads/filename")
+    image_url: str = Field(..., description="Relative path served at GET /uploads/<filename>")
 
     # Prediction
     predicted_label: str
@@ -224,36 +125,6 @@ class AnalysisPreview(BaseModel):
 
 
 class MealFromAnalysisRequest(BaseModel):
-    """
-    Request body for POST /meals/from-analysis.
-
-    Sent after the user reviews the AnalysisPreview and taps Confirm.
-    The backend re-resolves nutrition and saves to DB.
-
-    Example (user accepts prediction as-is):
-        {
-            "user_id": 1,
-            "predicted_label": "pizza",
-            "confirmed_label": null,
-            "confidence": 0.91,
-            "serving_quantity": 2,
-            "serving_unit": "slice",
-            "meal_type": "lunch",
-            "image_url": "uploads/user1_1718323200_abc12345.jpg"
-        }
-
-    Example (user corrects the label):
-        {
-            "user_id": 1,
-            "predicted_label": "pizza",
-            "confirmed_label": "flatbread",
-            "confidence": 0.91,
-            "serving_quantity": 1,
-            "serving_unit": "piece",
-            "meal_type": "lunch",
-            "image_url": "uploads/user1_1718323200_abc12345.jpg"
-        }
-    """
     user_id: int
     predicted_label: str = Field(..., description="Original model label — stored for audit trail")
     confirmed_label: Optional[str] = Field(
@@ -266,3 +137,83 @@ class MealFromAnalysisRequest(BaseModel):
     meal_type: MealType = Field("meal")
     meal_date: Optional[date] = Field(None, description="Defaults to today")
     image_url: Optional[str] = Field(None, description="image_url from the AnalysisPreview response")
+
+
+# =============================================================================
+# 5. Auth  —  POST /auth/signup  +  POST /auth/login
+# =============================================================================
+
+class SignupRequest(BaseModel):
+    email: str = Field(..., description="User email address")
+    password: str = Field(..., min_length=6, description="Plain-text password (will be hashed)")
+    name: Optional[str] = Field(None, description="Display name")
+
+
+class LoginRequest(BaseModel):
+    email: str
+    password: str
+
+
+class TokenResponse(BaseModel):
+    """Returned after signup or login."""
+    token: str
+    user_id: int
+    onboarding_completed: bool
+
+
+# =============================================================================
+# 6. Users  —  GET /users/me  +  PATCH /users/me
+# =============================================================================
+
+class UserResponse(BaseModel):
+    id: int
+    email: str
+    name: Optional[str] = None
+    gender: Optional[str] = None
+    height_cm: Optional[float] = None
+    weight_kg: Optional[float] = None
+    goal: Optional[str] = None
+    weekly_effort: Optional[str] = None
+    daily_calorie_goal: int
+    daily_protein_goal: int
+    daily_carbs_goal: int
+    daily_fat_goal: int
+    onboarding_completed: bool
+
+
+class OnboardingRequest(BaseModel):
+    """Sent after the user completes the onboarding questions."""
+    name: str
+    goal: Literal["lose_weight", "maintain_weight", "gain_weight", "build_muscle"]
+    gender: Literal["male", "female", "other"]
+    weight_kg: float = Field(..., gt=0)
+    height_cm: float = Field(..., gt=0)
+    weekly_effort: Literal["low", "moderate", "high"]
+
+
+class UpdateProfileRequest(BaseModel):
+    """Optional fields for PATCH /users/me."""
+    name: Optional[str] = None
+    goal: Optional[str] = None
+    gender: Optional[str] = None
+    weight_kg: Optional[float] = None
+    height_cm: Optional[float] = None
+    weekly_effort: Optional[str] = None
+
+
+# =============================================================================
+# 7. Manual Meals  —  POST /meals/manual
+# =============================================================================
+
+class ManualMealRequest(BaseModel):
+    """Log a meal manually without AI prediction."""
+    user_id: int
+    food_name: str = Field(..., description="Name of the food item")
+    serving_quantity: float = Field(1.0, gt=0)
+    serving_unit: str = Field("g")
+    calories: float = Field(..., ge=0)
+    protein_g: float = Field(0.0, ge=0)
+    carbs_g: float = Field(0.0, ge=0)
+    fat_g: float = Field(0.0, ge=0)
+    meal_type: MealType = Field("meal")
+    meal_date: Optional[date] = Field(None, description="Defaults to today")

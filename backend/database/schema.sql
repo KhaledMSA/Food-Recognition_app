@@ -1,16 +1,4 @@
--- =============================================================================
--- Food Recognition & Nutrition Analysis App — Core Schema (Phase 1)
--- PostgreSQL 15+  (also compatible with SQLite with minor type adjustments)
---
--- Tables:   users, food_items, meals, meal_items
--- Deferred: daily_nutrition_summary  → see schema_add_summary.sql
--- =============================================================================
 
-
--- ---------------------------------------------------------------------------
--- 1. USERS
---    Stores account info and personal targets used for daily goal tracking.
--- ---------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS users (
     id                  SERIAL PRIMARY KEY,
     email               VARCHAR(255) NOT NULL UNIQUE,
@@ -82,12 +70,7 @@ CREATE TABLE IF NOT EXISTS meals (
 CREATE INDEX IF NOT EXISTS idx_meals_user_date ON meals(user_id, meal_date);
 
 
--- ---------------------------------------------------------------------------
--- 4. MEAL ITEMS
---    Each row is one food item scanned/added within a meal.
---    Nutrition columns are pre-computed at insert time so historical records
---    are never affected by future edits to food_items.
--- ---------------------------------------------------------------------------
+-------------------------------------------------
 CREATE TABLE IF NOT EXISTS meal_items (
     id                  SERIAL PRIMARY KEY,
     meal_id             INTEGER NOT NULL REFERENCES meals(id) ON DELETE CASCADE,

@@ -27,15 +27,14 @@ class MealTile extends StatelessWidget {
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withValues(alpha: 0.05),
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),
         ],
       ),
       child: ListTile(
-        contentPadding:
-            const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
         leading: _FoodIcon(label: meal.foodName),
         title: Text(
           meal.foodName,
@@ -56,7 +55,7 @@ class MealTile extends StatelessWidget {
                 '${meal.servingQuantity.toStringAsFixed(0)} ${meal.servingUnit}',
                 style: TextStyle(
                   fontSize: 12,
-                  color: colorScheme.onSurface.withOpacity(0.55),
+                  color: colorScheme.onSurface.withValues(alpha: 0.55),
                 ),
               ),
               const Spacer(),
@@ -64,7 +63,7 @@ class MealTile extends StatelessWidget {
                 meal.formattedTime,
                 style: TextStyle(
                   fontSize: 12,
-                  color: colorScheme.onSurface.withOpacity(0.45),
+                  color: colorScheme.onSurface.withValues(alpha: 0.45),
                 ),
               ),
             ],
@@ -78,7 +77,7 @@ class MealTile extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
                 Text(
-                  '${meal.calories.toStringAsFixed(0)}',
+                  meal.calories.toStringAsFixed(0),
                   style: const TextStyle(
                     fontSize: 17,
                     fontWeight: FontWeight.w700,
@@ -111,10 +110,10 @@ class MealTile extends StatelessWidget {
   Color _mealTypeColor(String type) {
     return switch (type.toLowerCase()) {
       'breakfast' => const Color(0xFFFF9800),
-      'lunch'     => const Color(0xFF4CAF50),
-      'dinner'    => const Color(0xFF3F51B5),
-      'snack'     => const Color(0xFF9C27B0),
-      _           => const Color(0xFF607D8B),
+      'lunch' => const Color(0xFF4CAF50),
+      'dinner' => const Color(0xFF3F51B5),
+      'snack' => const Color(0xFF9C27B0),
+      _ => const Color(0xFF607D8B),
     };
   }
 }
@@ -156,7 +155,7 @@ class _Tag extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.12),
+        color: color.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(6),
       ),
       child: Text(

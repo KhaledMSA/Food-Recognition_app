@@ -39,9 +39,10 @@ from sqlalchemy.orm import Session, joinedload
 from app.db import get_db
 from app.models import FoodItem, Meal, MealItem
 from app.nutrition_utils import ALL_VALID_UNITS, resolve_nutrition, to_grams
-from app.schemas import MealEntryResponse, MealLogRequest
+from app.schemas import MealEntryResponse, MealLogRequest, ManualMealRequest
 
 router = APIRouter(prefix="/meals", tags=["Meals"])
+
 
 
 
@@ -325,3 +326,79 @@ def delete_meal(meal_id: int, db: Session = Depends(get_db)):
     db.delete(meal)
     db.commit()
     # 204 No Content — return nothing
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# POST /meals/manual  — log a meal manually (no AI)
+# ─────────────────────────────────────────────────────────────────────────────
+
+@router.post("/manual", response_model=MealEntryResponse, status_code=201)
+def log_manual_meal(payload: ManualMealRequest, db: Session = Depends(get_db)):
+    """
+    **Log a food item manually without AI prediction.**
+
+    The user provides food name and nutrition values directly.
+    Uses nutrition_source = "manual" and reuses the same meals/meal_items tables.
+    """
+    meal_date = payload.meal_date or date_type.today()
+
+    # Convert serving to grams (basic)
+    unit = payload.serving_unit.strip().lower()
+    serving_g_map = {
+        "g": payload.serving_quantity,
+        "ml": payload.serving_quantity,
+        "oz": payload.serving_quantity * 28.3495,
+        "lb": payload.serving_quantity * 453.592,
+        "cup": payload.serving_quantity * 240.0,
+        "tbsp": payload.serving_quantity * 15.0,
+        "tsp": payload.serving_quantity * 5.0,
+    }
+    serving_g = serving_g_map.get(unit, payload.serving_quantity)
+
+    meal = Meal(
+        user_id=payload.user_id,
+        name=payload.meal_type,
+        meal_date=meal_date,
+    )
+    db.add(meal)
+    db.flush()
+
+    meal_item = MealItem(
+        meal_id=meal.id,
+        food_item_id=None,
+        serving_quantity=payload.serving_quantity,
+        serving_unit=payload.serving_unit,
+        serving_g=round(serving_g, 1),
+        calories=payload.calories,
+        protein_g=payload.protein_g,
+        carbs_g=payload.carbs_g,
+        fat_g=payload.fat_g,
+        predicted_label=payload.food_name,  # store the name here for display
+        confidence=None,
+        image_path=None,
+        nutrition_source="manual",
+    )
+    db.add(meal_item)
+    db.commit()
+    db.refresh(meal_item)
+    db.refresh(meal)
+
+    return MealEntryResponse(
+        meal_item_id=meal_item.id,
+        meal_id=meal.id,
+        user_id=meal.user_id,
+        food_name=payload.food_name,
+        predicted_label=payload.food_name,
+        serving_quantity=meal_item.serving_quantity,
+        serving_unit=meal_item.serving_unit,
+        serving_g=meal_item.serving_g,
+        calories=meal_item.calories,
+        protein_g=meal_item.protein_g,
+        carbs_g=meal_item.carbs_g,
+        fat_g=meal_item.fat_g,
+        confidence=None,
+        image_url=None,
+        meal_type=meal.name,
+        meal_date=meal.meal_date,
+        logged_at=meal_item.created_at,
+    )

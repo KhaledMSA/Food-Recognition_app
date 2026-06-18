@@ -26,6 +26,8 @@ from app.db import Base, engine
 from app.model_loader import model_manager
 from app.routers import meals, nutrition
 from app.routers.analyze import UPLOADS_DIR, router as analyze_router
+from app.routers.auth import router as auth_router
+from app.routers.users import router as users_router
 from app.schemas import PredictionItem, PredictionResponse
 from app.utils import get_top_predictions, preprocess_image
 
@@ -103,6 +105,8 @@ app.mount(
 # ---------------------------------------------------------------------------
 # Routers
 # ---------------------------------------------------------------------------
+app.include_router(auth_router)
+app.include_router(users_router)
 app.include_router(meals.router)
 app.include_router(nutrition.router)
 app.include_router(analyze_router)

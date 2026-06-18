@@ -1,20 +1,12 @@
 // screens/dashboard_screen.dart
-//
-// Home screen showing:
-//   • Today's date greeting
-//   • Calorie progress bar
-//   • 4 macro summary cards (calories, protein, carbs, fat)
-//   • Today's meal list (last 5)
-//   • FAB to go to UploadScreen
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../providers/auth_provider.dart';
 import '../providers/meal_provider.dart';
 import '../widgets/meal_tile.dart';
-import '../widgets/nutrition_card.dart';
 import 'upload_screen.dart';
-import 'meal_history_screen.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -27,17 +19,19 @@ class _DashboardScreenState extends State<DashboardScreen> {
   @override
   void initState() {
     super.initState();
-    // Load data after first frame so the provider is available
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<MealProvider>().loadTodayData();
-    });
+    WidgetsBinding.instance.addPostFrameCallback((_) => _reload());
+  }
+
+  void _reload() {
+    final userId = context.read<AuthProvider>().userId;
+    if (userId > 0) context.read<MealProvider>().loadTodayData(userId);
   }
 
   String _greeting() {
-    final hour = DateTime.now().hour;
-    if (hour < 12) return 'Good morning 🌤️';
-    if (hour < 17) return 'Good afternoon ☀️';
-    return 'Good evening 🌙';
+    final h = DateTime.now().hour;
+    if (h < 12) return 'Good morning';
+    if (h < 17) return 'Good afternoon';
+    return 'Good evening';
   }
 
   String _todayLabel() {
@@ -51,6 +45,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final user = context.watch<AuthProvider>().currentUser;
+
     return Scaffold(
       backgroundColor: const Color(0xFFF7F8FA),
       body: SafeArea(
@@ -58,52 +54,63 @@ class _DashboardScreenState extends State<DashboardScreen> {
           builder: (context, provider, _) {
             return RefreshIndicator(
               color: const Color(0xFF4CAF50),
-              onRefresh: () => provider.loadTodayData(),
+              onRefresh: () async => _reload(),
               child: CustomScrollView(
                 slivers: [
-                  // ── Header ────────────────────────────────────────────────
+                  // ── Header ──────────────────────────────────────────────
                   SliverToBoxAdapter(
                     child: Padding(
                       padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
                       child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                _greeting(),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  '${_greeting()}, ${user?.displayName ?? ''} 👋',
+                                  style: const TextStyle(
+                                    fontSize: 20,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  _todayLabel(),
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    color: Colors.grey.shade600,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          if (user?.goal != null)
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 10, vertical: 5),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF43A047)
+                                    .withValues(alpha: 0.1),
+                                borderRadius: BorderRadius.circular(20),
+                              ),
+                              child: Text(
+                                user!.goalLabel,
                                 style: const TextStyle(
-                                  fontSize: 22,
+                                  color: Color(0xFF2E7D32),
+                                  fontSize: 11,
                                   fontWeight: FontWeight.w700,
                                 ),
                               ),
-                              const SizedBox(height: 2),
-                              Text(
-                                _todayLabel(),
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  color: Colors.grey.shade600,
-                                ),
-                              ),
-                            ],
-                          ),
-                          IconButton(
-                            icon: const Icon(Icons.history_rounded),
-                            tooltip: 'Meal history',
-                            onPressed: () => Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => const MealHistoryScreen(),
-                              ),
                             ),
-                          ),
                         ],
                       ),
                     ),
                   ),
 
-                  // ── Error banner ──────────────────────────────────────────
+                  // ── Error banner ─────────────────────────────────────────
                   if (provider.hasError)
                     SliverToBoxAdapter(
                       child: _ErrorBanner(
@@ -112,20 +119,19 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       ),
                     ),
 
-                  // ── Loading indicator ─────────────────────────────────────
+                  // ── Loading / Content ─────────────────────────────────────
                   if (provider.isLoading)
                     const SliverToBoxAdapter(
                       child: Padding(
                         padding: EdgeInsets.all(32),
                         child: Center(
                           child: CircularProgressIndicator(
-                            color: Color(0xFF4CAF50),
-                          ),
+                              color: Color(0xFF4CAF50)),
                         ),
                       ),
                     )
                   else ...[
-                    // ── Calorie progress card ─────────────────────────────
+                    // ── Calorie card ─────────────────────────────────────
                     SliverToBoxAdapter(
                       child: Padding(
                         padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
@@ -134,21 +140,47 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     ),
 
                     // ── Macro row ─────────────────────────────────────────
+                    if (provider.dailySummary != null)
+                      SliverToBoxAdapter(
+                        child: Padding(
+                          padding: const EdgeInsets.fromLTRB(20, 14, 20, 0),
+                          child: _MacroProgressRow(provider: provider),
+                        ),
+                      ),
+
+                    // ── Quick actions ─────────────────────────────────────
                     SliverToBoxAdapter(
                       child: Padding(
-                        padding: const EdgeInsets.fromLTRB(20, 14, 20, 0),
-                        child: provider.dailySummary != null
-                            ? MacroRow(
-                                calories: provider.dailySummary!.totalCalories,
-                                protein:  provider.dailySummary!.totalProteinG,
-                                carbs:    provider.dailySummary!.totalCarbsG,
-                                fat:      provider.dailySummary!.totalFatG,
-                              )
-                            : const SizedBox.shrink(),
+                        padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: _QuickAction(
+                                icon: Icons.camera_alt_rounded,
+                                label: 'Scan Food',
+                                color: const Color(0xFF43A047),
+                                onTap: () => _goToUpload(context),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: _QuickAction(
+                                icon: Icons.edit_note_rounded,
+                                label: 'Add Manually',
+                                color: const Color(0xFF1565C0),
+                                onTap: () {
+                                  // Switch to Diary via BottomNav (index 2)
+                                  // Signal main shell to go to tab 2
+                                  DefaultTabController.of(context);
+                                },
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
 
-                    // ── Today's meals ─────────────────────────────────────
+                    // ── Today's meals header ──────────────────────────────
                     SliverToBoxAdapter(
                       child: Padding(
                         padding: const EdgeInsets.fromLTRB(20, 24, 20, 0),
@@ -158,45 +190,39 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             const Text(
                               "Today's meals",
                               style: TextStyle(
-                                fontSize: 17,
-                                fontWeight: FontWeight.w700,
-                              ),
+                                  fontSize: 17,
+                                  fontWeight: FontWeight.w700),
                             ),
-                            if (provider.todayMeals.length > 3)
-                              TextButton(
-                                onPressed: () => Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (_) => const MealHistoryScreen(),
-                                  ),
-                                ),
-                                child: const Text('See all'),
-                              ),
+                            Text(
+                              '${provider.todayMeals.length} items',
+                              style: TextStyle(
+                                  color: Colors.grey.shade500,
+                                  fontSize: 13),
+                            ),
                           ],
                         ),
                       ),
                     ),
 
+                    // ── Meal list ─────────────────────────────────────────
                     if (provider.todayMeals.isEmpty)
                       SliverToBoxAdapter(
                         child: _EmptyMeals(
-                          onAdd: () => _goToUpload(context),
-                        ),
+                            onScan: () => _goToUpload(context)),
                       )
                     else
                       SliverList(
                         delegate: SliverChildBuilderDelegate(
                           (context, index) {
-                            final meal = provider.todayMeals
-                                .take(5)
-                                .toList()[index];
+                            final meal =
+                                provider.todayMeals.take(5).toList()[index];
                             return Padding(
                               padding:
                                   const EdgeInsets.symmetric(horizontal: 20),
                               child: MealTile(
                                 meal: meal,
-                                onDelete: () =>
-                                    _confirmDelete(context, provider, meal.mealId),
+                                onDelete: () => _confirmDelete(
+                                    context, provider, meal.mealId),
                               ),
                             );
                           },
@@ -204,7 +230,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         ),
                       ),
 
-                    const SliverToBoxAdapter(child: SizedBox(height: 100)),
+                    const SliverToBoxAdapter(
+                        child: SizedBox(height: 100)),
                   ],
                 ],
               ),
@@ -212,33 +239,22 @@ class _DashboardScreenState extends State<DashboardScreen> {
           },
         ),
       ),
-
-      // ── FAB: go to camera/upload screen ──────────────────────────────────
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _goToUpload(context),
-        backgroundColor: const Color(0xFF4CAF50),
-        foregroundColor: Colors.white,
-        icon: const Icon(Icons.camera_alt_rounded),
-        label: const Text(
-          'Scan Food',
-          style: TextStyle(fontWeight: FontWeight.w600),
-        ),
-      ),
     );
   }
 
   void _goToUpload(BuildContext context) {
+    final userId = context.read<AuthProvider>().userId;
     Navigator.push(
       context,
-      MaterialPageRoute(builder: (_) => const UploadScreen()),
+      MaterialPageRoute(builder: (_) => UploadScreen(userId: userId)),
     ).then((_) {
-      // Refresh dashboard when returning from the upload flow
-      if (mounted) context.read<MealProvider>().loadTodayData();
+      if (mounted) _reload();
     });
   }
 
   Future<void> _confirmDelete(
       BuildContext context, MealProvider provider, int mealId) async {
+    final userId = context.read<AuthProvider>().userId;
     final confirm = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
@@ -247,9 +263,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
         content: const Text('This will remove the meal from your log.'),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
-          ),
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Cancel')),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
             style: TextButton.styleFrom(foregroundColor: Colors.red),
@@ -258,14 +273,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
         ],
       ),
     );
-
     if (confirm == true && context.mounted) {
-      await provider.deleteMeal(mealId);
+      await provider.deleteMeal(mealId, userId);
     }
   }
 }
 
-// ─── Sub-widgets ─────────────────────────────────────────────────────────────
+// ─── Calorie card ─────────────────────────────────────────────────────────────
 
 class _CalorieCard extends StatelessWidget {
   final MealProvider provider;
@@ -273,11 +287,11 @@ class _CalorieCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final summary = provider.dailySummary;
-    final progress = summary?.calorieProgress ?? 0.0;
-    final consumed = summary?.totalCalories.toStringAsFixed(0) ?? '0';
-    final goal     = summary?.calorieGoal?.toString() ?? '2000';
-    final remaining = summary?.caloriesRemaining?.toStringAsFixed(0) ?? goal;
+    final s = provider.dailySummary;
+    final progress = s?.calorieProgress ?? 0.0;
+    final consumed = s?.totalCalories.toStringAsFixed(0) ?? '0';
+    final goal = s?.calorieGoal?.toString() ?? '2000';
+    final remaining = s?.caloriesRemaining?.toStringAsFixed(0) ?? goal;
 
     return Container(
       padding: const EdgeInsets.all(20),
@@ -290,7 +304,7 @@ class _CalorieCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF4CAF50).withOpacity(0.35),
+            color: const Color(0xFF4CAF50).withValues(alpha: 0.35),
             blurRadius: 16,
             offset: const Offset(0, 6),
           ),
@@ -299,27 +313,21 @@ class _CalorieCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'Daily Calories',
-            style: TextStyle(color: Colors.white70, fontSize: 13),
-          ),
+          const Text('Daily Calories',
+              style: TextStyle(color: Colors.white70, fontSize: 13)),
           const SizedBox(height: 4),
           Row(
             crossAxisAlignment: CrossAxisAlignment.baseline,
             textBaseline: TextBaseline.alphabetic,
             children: [
-              Text(
-                consumed,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 36,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-              Text(
-                ' / $goal kcal',
-                style: const TextStyle(color: Colors.white70, fontSize: 15),
-              ),
+              Text(consumed,
+                  style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 36,
+                      fontWeight: FontWeight.w800)),
+              Text(' / $goal kcal',
+                  style: const TextStyle(
+                      color: Colors.white70, fontSize: 15)),
             ],
           ),
           const SizedBox(height: 12),
@@ -327,15 +335,119 @@ class _CalorieCard extends StatelessWidget {
             borderRadius: BorderRadius.circular(8),
             child: LinearProgressIndicator(
               value: progress,
-              backgroundColor: Colors.white.withOpacity(0.25),
-              valueColor: const AlwaysStoppedAnimation<Color>(Colors.white),
+              backgroundColor: Colors.white.withValues(alpha: 0.25),
+              valueColor:
+                  const AlwaysStoppedAnimation<Color>(Colors.white),
               minHeight: 8,
             ),
           ),
           const SizedBox(height: 8),
-          Text(
-            '$remaining kcal remaining',
-            style: const TextStyle(color: Colors.white70, fontSize: 12),
+          Text('$remaining kcal remaining',
+              style: const TextStyle(color: Colors.white70, fontSize: 12)),
+        ],
+      ),
+    );
+  }
+}
+
+// ─── Macro row ────────────────────────────────────────────────────────────────
+
+class _MacroProgressRow extends StatelessWidget {
+  final MealProvider provider;
+  const _MacroProgressRow({required this.provider});
+
+  @override
+  Widget build(BuildContext context) {
+    final s = provider.dailySummary!;
+    return Row(
+      children: [
+        Expanded(
+          child: _MacroCard(
+            label: 'Protein',
+            consumed: s.totalProteinG,
+            goal: s.proteinGoal?.toDouble() ?? 50,
+            progress: s.proteinProgress,
+            color: const Color(0xFF1565C0),
+          ),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: _MacroCard(
+            label: 'Carbs',
+            consumed: s.totalCarbsG,
+            goal: s.carbsGoal?.toDouble() ?? 250,
+            progress: s.carbsProgress,
+            color: const Color(0xFFE65100),
+          ),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: _MacroCard(
+            label: 'Fat',
+            consumed: s.totalFatG,
+            goal: s.fatGoal?.toDouble() ?? 65,
+            progress: s.fatProgress,
+            color: const Color(0xFF6A1B9A),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _MacroCard extends StatelessWidget {
+  final String label;
+  final double consumed;
+  final double goal;
+  final double progress;
+  final Color color;
+
+  const _MacroCard({
+    required this.label,
+    required this.consumed,
+    required this.goal,
+    required this.progress,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 6,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(label,
+              style: TextStyle(
+                  fontSize: 11,
+                  color: Colors.grey.shade500,
+                  fontWeight: FontWeight.w600)),
+          const SizedBox(height: 4),
+          Text('${consumed.toStringAsFixed(0)}g',
+              style: TextStyle(
+                  fontSize: 16, fontWeight: FontWeight.w700, color: color)),
+          Text('/ ${goal.toStringAsFixed(0)}g',
+              style: TextStyle(fontSize: 11, color: Colors.grey.shade500)),
+          const SizedBox(height: 6),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(4),
+            child: LinearProgressIndicator(
+              value: progress,
+              backgroundColor: color.withValues(alpha: 0.12),
+              valueColor: AlwaysStoppedAnimation<Color>(color),
+              minHeight: 5,
+            ),
           ),
         ],
       ),
@@ -343,9 +455,53 @@ class _CalorieCard extends StatelessWidget {
   }
 }
 
+// ─── Quick action ─────────────────────────────────────────────────────────────
+
+class _QuickAction extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final Color color;
+  final VoidCallback onTap;
+
+  const _QuickAction({
+    required this.icon,
+    required this.label,
+    required this.color,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 14),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.08),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: color.withValues(alpha: 0.2)),
+        ),
+        child: Column(
+          children: [
+            Icon(icon, color: color, size: 24),
+            const SizedBox(height: 6),
+            Text(label,
+                style: TextStyle(
+                    color: color,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600)),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ─── Empty state ──────────────────────────────────────────────────────────────
+
 class _EmptyMeals extends StatelessWidget {
-  final VoidCallback onAdd;
-  const _EmptyMeals({required this.onAdd});
+  final VoidCallback onScan;
+  const _EmptyMeals({required this.onScan});
 
   @override
   Widget build(BuildContext context) {
@@ -355,21 +511,18 @@ class _EmptyMeals extends StatelessWidget {
         children: [
           Icon(Icons.no_food_rounded, size: 60, color: Colors.grey.shade300),
           const SizedBox(height: 12),
-          const Text(
-            'No meals logged yet',
-            style: TextStyle(fontSize: 16, color: Colors.grey),
-          ),
+          const Text('No meals logged yet',
+              style: TextStyle(fontSize: 16, color: Colors.grey)),
           const SizedBox(height: 16),
           OutlinedButton.icon(
-            onPressed: onAdd,
+            onPressed: onScan,
             icon: const Icon(Icons.camera_alt_rounded),
             label: const Text('Scan your first meal'),
             style: OutlinedButton.styleFrom(
               foregroundColor: const Color(0xFF4CAF50),
               side: const BorderSide(color: Color(0xFF4CAF50)),
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
+                  borderRadius: BorderRadius.circular(12)),
               padding:
                   const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
             ),
@@ -379,6 +532,8 @@ class _EmptyMeals extends StatelessWidget {
     );
   }
 }
+
+// ─── Error banner ─────────────────────────────────────────────────────────────
 
 class _ErrorBanner extends StatelessWidget {
   final String message;
@@ -390,7 +545,8 @@ class _ErrorBanner extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        padding:
+            const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         decoration: BoxDecoration(
           color: Colors.red.shade50,
           borderRadius: BorderRadius.circular(12),
@@ -402,10 +558,9 @@ class _ErrorBanner extends StatelessWidget {
                 color: Colors.redAccent, size: 20),
             const SizedBox(width: 10),
             Expanded(
-              child: Text(
-                message,
-                style: const TextStyle(color: Colors.redAccent, fontSize: 13),
-              ),
+              child: Text(message,
+                  style: const TextStyle(
+                      color: Colors.redAccent, fontSize: 13)),
             ),
             GestureDetector(
               onTap: onDismiss,

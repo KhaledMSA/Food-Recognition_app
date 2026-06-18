@@ -14,23 +14,24 @@ import '../services/api_service.dart';
 import 'prediction_result_screen.dart';
 
 class UploadScreen extends StatefulWidget {
-  const UploadScreen({super.key});
+  final int userId;
+  const UploadScreen({super.key, required this.userId});
 
   @override
   State<UploadScreen> createState() => _UploadScreenState();
 }
 
 class _UploadScreenState extends State<UploadScreen> {
-  File?   _selectedImage;
-  bool    _isAnalyzing = false;
+  File? _selectedImage;
+  bool _isAnalyzing = false;
   String? _error;
 
   final _qtyController =
       TextEditingController(text: ApiConfig.defaultServingQty.toString());
   String _selectedUnit = ApiConfig.defaultServingUnit;
 
-  final _picker  = ImagePicker();
-  final _api     = ApiService();
+  final _picker = ImagePicker();
+  final _api = ApiService();
   final _qtyFocus = FocusNode();
 
   @override
@@ -76,10 +77,10 @@ class _UploadScreenState extends State<UploadScreen> {
 
     try {
       final preview = await _api.analyzeImage(
-        imageFile:       _selectedImage!,
-        userId:          ApiConfig.userId,
+        imageFile: _selectedImage!,
+        userId: widget.userId,
         servingQuantity: qty,
-        servingUnit:     _selectedUnit,
+        servingUnit: _selectedUnit,
       );
 
       if (!mounted) return;
@@ -89,10 +90,11 @@ class _UploadScreenState extends State<UploadScreen> {
         context,
         MaterialPageRoute(
           builder: (_) => PredictionResultScreen(
-            preview:         preview,
-            imageFile:       _selectedImage!,
+            preview: preview,
+            imageFile: _selectedImage!,
             servingQuantity: qty,
-            servingUnit:     _selectedUnit,
+            servingUnit: _selectedUnit,
+            userId: widget.userId,
           ),
         ),
       );
@@ -130,7 +132,7 @@ class _UploadScreenState extends State<UploadScreen> {
                 // ── Image preview / picker area ───────────────────────────
                 _ImagePickerArea(
                   image: _selectedImage,
-                  onCamera:  () => _pick(ImageSource.camera),
+                  onCamera: () => _pick(ImageSource.camera),
                   onGallery: () => _pick(ImageSource.gallery),
                 ),
                 const SizedBox(height: 24),
@@ -157,7 +159,7 @@ class _UploadScreenState extends State<UploadScreen> {
                     Expanded(
                       flex: 2,
                       child: DropdownButtonFormField<String>(
-                        value: _selectedUnit,
+                        initialValue: _selectedUnit,
                         decoration: _inputDecoration('Unit'),
                         items: ApiConfig.servingUnits
                             .map((u) => DropdownMenuItem(
@@ -165,8 +167,7 @@ class _UploadScreenState extends State<UploadScreen> {
                                   child: Text(u),
                                 ))
                             .toList(),
-                        onChanged: (v) =>
-                            setState(() => _selectedUnit = v!),
+                        onChanged: (v) => setState(() => _selectedUnit = v!),
                       ),
                     ),
                   ],
@@ -205,7 +206,7 @@ class _UploadScreenState extends State<UploadScreen> {
                       borderRadius: BorderRadius.circular(14),
                     ),
                     disabledBackgroundColor:
-                        const Color(0xFF4CAF50).withOpacity(0.5),
+                        const Color(0xFF4CAF50).withValues(alpha: 0.5),
                   ),
                 ),
               ],
@@ -229,8 +230,7 @@ class _UploadScreenState extends State<UploadScreen> {
         borderRadius: BorderRadius.circular(12),
         borderSide: BorderSide(color: Colors.grey.shade200),
       ),
-      contentPadding:
-          const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
     );
   }
 }
@@ -350,8 +350,7 @@ class _ErrorBox extends StatelessWidget {
           Expanded(
             child: Text(
               message,
-              style:
-                  const TextStyle(color: Colors.redAccent, fontSize: 13),
+              style: const TextStyle(color: Colors.redAccent, fontSize: 13),
             ),
           ),
         ],

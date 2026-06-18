@@ -1,88 +1,80 @@
 // main.dart
-//
-// App entry point. Sets up Provider and the top-level MaterialApp.
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import 'providers/auth_provider.dart';
 import 'providers/meal_provider.dart';
-import 'screens/dashboard_screen.dart';
+import 'screens/auth_wrapper.dart';
 
 void main() {
-  runApp(const FoodRecognitionApp());
+  WidgetsFlutterBinding.ensureInitialized();
+  runApp(const NutriLensApp());
 }
 
-class FoodRecognitionApp extends StatelessWidget {
-  const FoodRecognitionApp({super.key});
+class NutriLensApp extends StatelessWidget {
+  const NutriLensApp({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return ChangeNotifierProvider(
-      create: (_) => MealProvider(),
+    return MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (_) => AuthProvider()),
+        ChangeNotifierProvider(create: (_) => MealProvider()),
+      ],
       child: MaterialApp(
-        title: 'NutriScan',
+        title: 'NutriLens',
         debugShowCheckedModeBanner: false,
-        theme: _buildTheme(),
-        home: const DashboardScreen(),
-      ),
-    );
-  }
-
-  ThemeData _buildTheme() {
-    return ThemeData(
-      useMaterial3: true,
-      colorScheme: ColorScheme.fromSeed(
-        seedColor: const Color(0xFF4CAF50),
-        brightness: Brightness.light,
-      ),
-      // Font family — uses system fonts; swap for Google Fonts package later
-      textTheme: const TextTheme(
-        bodyMedium: TextStyle(fontSize: 14, height: 1.5),
-      ),
-      // AppBar
-      appBarTheme: const AppBarTheme(
-        centerTitle: false,
-        elevation: 0,
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.black87,
-        surfaceTintColor: Colors.transparent,
-      ),
-      // Cards
-      cardTheme: CardThemeData(
-        elevation: 0,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-        ),
-        color: Colors.white,
-      ),
-      // Elevated buttons
-      elevatedButtonTheme: ElevatedButtonThemeData(
-        style: ElevatedButton.styleFrom(
-          backgroundColor: const Color(0xFF4CAF50),
-          foregroundColor: Colors.white,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(14),
+        theme: ThemeData(
+          useMaterial3: true,
+          colorScheme: ColorScheme.fromSeed(
+            seedColor: const Color(0xFF43A047),
+            brightness: Brightness.light,
+          ),
+          scaffoldBackgroundColor: const Color(0xFFF7F8FA),
+          fontFamily: 'Roboto',
+          appBarTheme: const AppBarTheme(
+            backgroundColor: Colors.white,
+            foregroundColor: Colors.black87,
+            elevation: 0,
+            centerTitle: false,
+          ),
+          inputDecorationTheme: InputDecorationTheme(
+            filled: true,
+            fillColor: Colors.white,
+            contentPadding:
+                const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide(color: Colors.grey.shade200),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide(color: Colors.grey.shade200),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide:
+                  const BorderSide(color: Color(0xFF43A047), width: 1.5),
+            ),
+          ),
+          elevatedButtonTheme: ElevatedButtonThemeData(
+            style: ElevatedButton.styleFrom(
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14)),
+              elevation: 0,
+            ),
+          ),
+          cardTheme: CardThemeData(
+            elevation: 0,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+              side: BorderSide(color: Colors.grey.shade100),
+            ),
+            color: Colors.white,
           ),
         ),
-      ),
-      // Input fields
-      inputDecorationTheme: InputDecorationTheme(
-        filled: true,
-        fillColor: Colors.white,
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: Colors.grey.shade200),
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: Colors.grey.shade200),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: Color(0xFF4CAF50), width: 1.5),
-        ),
-        contentPadding:
-            const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+        home: const AuthWrapper(),
       ),
     );
   }

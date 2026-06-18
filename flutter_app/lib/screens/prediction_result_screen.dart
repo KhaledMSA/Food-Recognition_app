@@ -24,6 +24,7 @@ class PredictionResultScreen extends StatefulWidget {
   final File            imageFile;
   final double          servingQuantity;
   final String          servingUnit;
+  final int             userId;
 
   const PredictionResultScreen({
     super.key,
@@ -31,6 +32,7 @@ class PredictionResultScreen extends StatefulWidget {
     required this.imageFile,
     required this.servingQuantity,
     required this.servingUnit,
+    required this.userId,
   });
 
   @override
@@ -47,10 +49,6 @@ class _PredictionResultScreenState
   bool _showAllPredictions = false;
   bool _isSaving = false;
   String? _error;
-
-  static const _mealTypes = [
-    'breakfast', 'lunch', 'dinner', 'snack', 'meal'
-  ];
 
   @override
   void initState() {
@@ -86,6 +84,7 @@ class _PredictionResultScreenState
             : null;
 
     final saved = await context.read<MealProvider>().confirmAndSaveMeal(
+          userId:          widget.userId,
           preview:         widget.preview,
           servingQuantity: qty,
           servingUnit:     _selectedUnit,
@@ -208,7 +207,7 @@ class _PredictionResultScreenState
                   Expanded(
                     flex: 2,
                     child: DropdownButtonFormField<String>(
-                      value: _selectedUnit,
+                      initialValue: _selectedUnit,
                       decoration: _inputDecoration('Unit'),
                       items: ApiConfig.servingUnits
                           .map((u) => DropdownMenuItem(
@@ -280,7 +279,7 @@ class _PredictionResultScreenState
                     borderRadius: BorderRadius.circular(14),
                   ),
                   disabledBackgroundColor:
-                      const Color(0xFF4CAF50).withOpacity(0.5),
+                      const Color(0xFF4CAF50).withValues(alpha: 0.5),
                 ),
               ),
               const SizedBox(height: 30),
@@ -335,7 +334,7 @@ class _PredictionCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withValues(alpha: 0.05),
             blurRadius: 10,
             offset: const Offset(0, 3),
           ),
@@ -462,7 +461,7 @@ class _Top5Section extends StatelessWidget {
                   const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
               decoration: BoxDecoration(
                 color: isSelected
-                    ? const Color(0xFF4CAF50).withOpacity(0.08)
+                    ? const Color(0xFF4CAF50).withValues(alpha: 0.08)
                     : Colors.white,
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(
@@ -539,7 +538,7 @@ class _MealTypeSelector extends StatelessWidget {
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
             decoration: BoxDecoration(
-              color: isSelected ? c.withOpacity(0.12) : Colors.white,
+              color: isSelected ? c.withValues(alpha: 0.12) : Colors.white,
               borderRadius: BorderRadius.circular(22),
               border: Border.all(
                 color: isSelected ? c : Colors.grey.shade200,

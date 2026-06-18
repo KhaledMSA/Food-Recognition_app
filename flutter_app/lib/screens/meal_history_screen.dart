@@ -6,6 +6,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../providers/auth_provider.dart';
 import '../providers/meal_provider.dart';
 import '../widgets/meal_tile.dart';
 
@@ -17,11 +18,16 @@ class MealHistoryScreen extends StatefulWidget {
 }
 
 class _MealHistoryScreenState extends State<MealHistoryScreen> {
+  int _userId = 0;
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<MealProvider>().loadTodayData();
+      _userId = context.read<AuthProvider>().userId;
+      if (_userId > 0) {
+        context.read<MealProvider>().loadTodayData(_userId);
+      }
     });
   }
 
@@ -30,6 +36,7 @@ class _MealHistoryScreenState extends State<MealHistoryScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFFF7F8FA),
       appBar: AppBar(
+        automaticallyImplyLeading: false,
         title: const Text("Today's Meals",
             style: TextStyle(fontWeight: FontWeight.w700)),
         backgroundColor: Colors.white,
@@ -59,7 +66,10 @@ class _MealHistoryScreenState extends State<MealHistoryScreen> {
                   ),
                   const SizedBox(height: 16),
                   OutlinedButton(
-                    onPressed: provider.loadTodayData,
+                    onPressed: () {
+                      final uid = context.read<AuthProvider>().userId;
+                      provider.loadTodayData(uid);
+                    },
                     child: const Text('Retry'),
                   ),
                 ],
@@ -86,15 +96,17 @@ class _MealHistoryScreenState extends State<MealHistoryScreen> {
 
           return RefreshIndicator(
             color: const Color(0xFF4CAF50),
-            onRefresh: provider.loadTodayData,
+            onRefresh: () {
+              final uid = context.read<AuthProvider>().userId;
+              return provider.loadTodayData(uid);
+            },
             child: ListView(
               padding: const EdgeInsets.all(16),
               children: [
-                // ── Summary row ─────────────────────────────────────────
+                // ── Summary bar ──────────────────────────────────────────
                 if (provider.dailySummary != null) ...[
                   _SummaryBar(
-                    totalCalories:
-                        provider.dailySummary!.totalCalories,
+                    totalCalories: provider.dailySummary!.totalCalories,
                     goal: provider.dailySummary!.calorieGoal ?? 2000,
                     entryCount: provider.dailySummary!.entryCount,
                   ),
@@ -105,7 +117,8 @@ class _MealHistoryScreenState extends State<MealHistoryScreen> {
                 ...provider.todayMeals.map(
                   (meal) => MealTile(
                     meal: meal,
-                    onDelete: () => _confirmDelete(context, provider, meal.mealId),
+                    onDelete: () =>
+                        _confirmDelete(context, provider, meal.mealId),
                   ),
                 ),
               ],
@@ -121,8 +134,7 @@ class _MealHistoryScreenState extends State<MealHistoryScreen> {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
-        shape:
-            RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: const Text('Delete meal?'),
         content: const Text('This will remove the entry from your log.'),
         actions: [
@@ -140,7 +152,8 @@ class _MealHistoryScreenState extends State<MealHistoryScreen> {
     );
 
     if (confirm == true && context.mounted) {
-      final ok = await provider.deleteMeal(mealId);
+      final userId = context.read<AuthProvider>().userId;
+      final ok = await provider.deleteMeal(mealId, userId);
       if (ok && context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -157,8 +170,8 @@ class _MealHistoryScreenState extends State<MealHistoryScreen> {
 
 class _SummaryBar extends StatelessWidget {
   final double totalCalories;
-  final int    goal;
-  final int    entryCount;
+  final int goal;
+  final int entryCount;
 
   const _SummaryBar({
     required this.totalCalories,
@@ -175,7 +188,7 @@ class _SummaryBar extends StatelessWidget {
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withValues(alpha: 0.05),
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),
@@ -187,10 +200,8 @@ class _SummaryBar extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  'Total today',
-                  style: TextStyle(fontSize: 12, color: Colors.grey),
-                ),
+                const Text('Total today',
+                    style: TextStyle(fontSize: 12, color: Colors.grey)),
                 Text(
                   '${totalCalories.toStringAsFixed(0)} / $goal kcal',
                   style: const TextStyle(
@@ -202,7 +213,7 @@ class _SummaryBar extends StatelessWidget {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
             decoration: BoxDecoration(
-              color: const Color(0xFF4CAF50).withOpacity(0.1),
+              color: const Color(0xFF4CAF50).withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(20),
             ),
             child: Text(

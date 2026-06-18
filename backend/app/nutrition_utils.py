@@ -171,3 +171,66 @@ def resolve_nutrition(
         "fat_g":        result["fat_g"],
         "source":       "map",
     }
+
+
+# =============================================================================
+# Nutrition goal calculator (used during onboarding)
+# =============================================================================
+
+def calculate_nutrition_goals(
+    gender: str,
+    weight_kg: float,
+    height_cm: float,
+    goal: str,
+    weekly_effort: str,
+) -> dict:
+    """
+    Calculate simple daily nutrition targets.
+
+    Formula (simple & explainable for graduation project):
+        1. Base calories by gender
+           male   = 2200
+           female = 2000
+           other  = 2100
+
+        2. Effort multiplier
+           low      = 1.0  (sedentary)
+           moderate = 1.2  (light exercise)
+           high     = 1.4  (active / heavy exercise)
+
+        3. Goal adjustment (kcal)
+           lose_weight     = -300
+           maintain_weight =    0
+           gain_weight     = +300
+           build_muscle    = +400
+
+        4. Macro split (standard balanced split):
+           protein = 25% of calories / 4 kcal/g
+           carbs   = 50% of calories / 4 kcal/g
+           fat     = 25% of calories / 9 kcal/g
+
+    Returns:
+        {"calories": int, "protein": int, "carbs": int, "fat": int}
+    """
+    # Step 1: base
+    base = {"male": 2200, "female": 2000, "other": 2100}.get(gender.lower(), 2000)
+
+    # Step 2: effort
+    effort_mult = {"low": 1.0, "moderate": 1.2, "high": 1.4}.get(weekly_effort.lower(), 1.0)
+
+    # Step 3: goal adjustment
+    goal_adj = {
+        "lose_weight":     -300,
+        "maintain_weight":    0,
+        "gain_weight":     +300,
+        "build_muscle":    +400,
+    }.get(goal.lower(), 0)
+
+    calories = round(base * effort_mult + goal_adj)
+
+    # Step 4: macros
+    protein = round(calories * 0.25 / 4)
+    carbs   = round(calories * 0.50 / 4)
+    fat     = round(calories * 0.25 / 9)
+
+    return {"calories": calories, "protein": protein, "carbs": carbs, "fat": fat}

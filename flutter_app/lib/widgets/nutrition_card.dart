@@ -1,8 +1,3 @@
-// widgets/nutrition_card.dart
-//
-// A compact card showing one macro nutrient (calories, protein, carbs, fat).
-// Used in both DashboardScreen and PredictionResultScreen.
-
 import 'package:flutter/material.dart';
 
 class NutritionCard extends StatelessWidget {
@@ -26,9 +21,9 @@ class NutritionCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.10),
+        color: color.withValues(alpha: 0.10),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: color.withOpacity(0.25), width: 1.2),
+        border: Border.all(color: color.withValues(alpha: 0.25), width: 1.2),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -45,7 +40,8 @@ class NutritionCard extends StatelessWidget {
           ),
           Text(
             unit,
-            style: TextStyle(fontSize: 11, color: color.withOpacity(0.75)),
+            style:
+                TextStyle(fontSize: 11, color: color.withValues(alpha: 0.75)),
           ),
           const SizedBox(height: 2),
           Text(
@@ -53,7 +49,10 @@ class NutritionCard extends StatelessWidget {
             style: TextStyle(
               fontSize: 12,
               fontWeight: FontWeight.w500,
-              color: Theme.of(context).colorScheme.onSurface.withOpacity(0.65),
+              color: Theme.of(context)
+                  .colorScheme
+                  .onSurface
+                  .withValues(alpha: 0.65),
             ),
           ),
         ],

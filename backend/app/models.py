@@ -1,15 +1,14 @@
 """
 models.py — SQLAlchemy ORM models.
 
-Maps to the 4 core tables defined in database/schema.sql:
+Maps to the 4 core tables:
     users, food_items, meals, meal_items
-
-daily_nutrition_summary is intentionally excluded (Phase 2 optimization).
 """
 
 from datetime import date, datetime
 
 from sqlalchemy import (
+    Boolean,
     CheckConstraint,
     Date,
     DateTime,
@@ -34,14 +33,32 @@ class User(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
     email: Mapped[str] = mapped_column(String(255), unique=True, nullable=False)
     password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
-    full_name: Mapped[str | None] = mapped_column(String(120))
-    age: Mapped[int | None] = mapped_column(Integer)
-    gender: Mapped[str | None] = mapped_column(String(10))
+
+    # Profile
+    name: Mapped[str | None] = mapped_column(String(120))
+    gender: Mapped[str | None] = mapped_column(String(10))   # male, female, other
     height_cm: Mapped[float | None] = mapped_column(Float)
     weight_kg: Mapped[float | None] = mapped_column(Float)
+    age: Mapped[int | None] = mapped_column(Integer)
+
+    # Goals & effort
+    goal: Mapped[str | None] = mapped_column(String(30))     # lose_weight, maintain_weight, gain_weight, build_muscle
+    weekly_effort: Mapped[str | None] = mapped_column(String(20))  # low, moderate, high
+
+    # Computed nutrition targets (calculated during onboarding)
     daily_calorie_goal: Mapped[int] = mapped_column(Integer, default=2000)
+    daily_protein_goal: Mapped[int] = mapped_column(Integer, default=50)
+    daily_carbs_goal: Mapped[int] = mapped_column(Integer, default=250)
+    daily_fat_goal: Mapped[int] = mapped_column(Integer, default=65)
+
+    # Onboarding flag
+    onboarding_completed: Mapped[bool] = mapped_column(Boolean, default=False)
+
+    # Simple auth token (UUID, no expiry for graduation project)
+    auth_token: Mapped[str | None] = mapped_column(String(64), unique=True, nullable=True)
+
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
-    updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())
 
     # Relationships
     meals: Mapped[list["Meal"]] = relationship("Meal", back_populates="user")
@@ -119,16 +136,18 @@ class MealItem(Base):
     serving_g: Mapped[float] = mapped_column(Float, nullable=False, default=100.0)
 
     # Pre-computed nutrition for this exact portion
-    # Stored at insert time — immune to future food_items edits
     calories: Mapped[float] = mapped_column(Float, nullable=False)
     protein_g: Mapped[float] = mapped_column(Float, default=0.0)
     carbs_g: Mapped[float] = mapped_column(Float, default=0.0)
     fat_g: Mapped[float] = mapped_column(Float, default=0.0)
 
-    # ML prediction context for auditing
+    # ML prediction context (null for manual entries)
     predicted_label: Mapped[str | None] = mapped_column(String(100))
     confidence: Mapped[float | None] = mapped_column(Float)
     image_path: Mapped[str | None] = mapped_column(Text)
+
+    # Source: "db", "map", or "manual"
+    nutrition_source: Mapped[str] = mapped_column(String(20), default="db")
 
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 

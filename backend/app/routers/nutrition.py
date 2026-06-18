@@ -122,4 +122,7 @@ def daily_summary(
         entry_count=result.entry_count,
         calorie_goal=calorie_goal,
         calories_remaining=calories_remaining,
+        protein_goal=user.daily_protein_goal,
+        carbs_goal=user.daily_carbs_goal,
+        fat_goal=user.daily_fat_goal,
     )
